@@ -1,0 +1,7 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {validateSubmission,normalize,parties} from '../domain.js';
+const input=()=>({unit:'01/01/01/001',election:'Presidential',date:'2027-02-20',registered:400,accredited:400,rejected:0,votes:[{party:'NDC',votes:250},{party:'APC',votes:100},{party:'ADC',votes:50}],confirm:true,file:{type:'application/pdf',data:Buffer.from('%PDF-1.7 sample').toString('base64')}});
+test('400-voter example produces NDC winner',()=>{const r=validateSubmission(input());assert.equal(r.total,400);assert.deepEqual(r.winners,['NDC']);});
+test('rejects over-voting, duplicate parties and missing confirmation',()=>{for(const change of [{accredited:399},{votes:[{party:'APC',votes:1},{party:'APC',votes:2}]},{confirm:false},{registered:1.5}])assert.throws(()=>validateSubmission({...input(),...change}));});
+test('tied and zero results are handled explicitly',()=>{assert.deepEqual(validateSubmission({...input(),votes:[{party:'NDC',votes:100},{party:'APC',votes:100}]}).winners,['NDC','APC']);assert.deepEqual(validateSubmission({...input(),votes:[{party:'APC',votes:0}]}).winners,[]);});
+test('rejects disguised attachments',()=>assert.throws(()=>validateSubmission({...input(),file:{type:'image/png',data:Buffer.from('not a png').toString('base64')}})));
+test('normalizes duplicate location names and includes 22 parties',()=>{assert.equal(normalize('Town Hall - 01'),normalize('TOWN HALL 01'));assert.equal(parties.length,22);});

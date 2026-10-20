@@ -1,0 +1,35 @@
+name: mpur
+
+x-runtime: &runtime
+  image: mpur:local
+  build:
+    context: .
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env to your Neon connection string}
+    HOST: 0.0.0.0
+    PORT: "3000"
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  setup:
+    <<: *runtime
+    command: ["node", "scripts/setup.js"]
+    restart: "no"
+    healthcheck:
+      disable: true
+
+  app:
+    <<: *runtime
+    init: true
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:3000"
+    restart: unless-stopped
+    stop_grace_period: 15s
