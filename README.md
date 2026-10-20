@@ -2,6 +2,8 @@
 
 A responsive citizen election-result platform built with Node.js, Express and Neon Postgres. All application source is in this folder.
 
+Admin approval and live totals are now included. See [ADMIN-DEPLOYMENT.md](ADMIN-DEPLOYMENT.md) for Render environment settings, the database upgrade, and the review workflow. Existing submissions await review before appearing publicly.
+
 ## Run locally
 
 Requires Node.js 22 or newer.
@@ -13,7 +15,7 @@ Requires Node.js 22 or newer.
 
 Without a connection string the directory and interface work, but saving submissions and adding locations are disabled. No fabricated results are shown.
 
-Run `npm test` for vote validation, attachments, ties, duplicate-name normalization and party coverage.
+Run `npm test` for validation, authentication, isolated PostgreSQL approval constraints, immutable records, and geographic aggregation. Tests do not touch Neon.
 
 ## Rules and storage
 
@@ -24,7 +26,7 @@ Run `npm test` for vote validation, attachments, ties, duplicate-name normalizat
 - Voter totals must be non-negative integers. Accredited voters cannot exceed registered voters. Party votes plus rejected ballots cannot exceed accreditation. Duplicate party rows are rejected. Parties not entered are not inferred to have received zero votes.
 - Ward and polling-unit names are normalized for duplicate detection within their parent location. Known numeric codes are also checked. Spelling variations without an official code may require human review; no name-based system can guarantee they refer to the same physical unit.
 - User-created locations are community additions, not official INEC verification.
-- Result leaders are calculated separately per submission; duplicate reports are never added into a national party total. Ties are explicit.
+- Submissions start pending. Only one admin-approved report per polling unit, election type and date contributes to live totals at unit, ward, LGA, state and national levels. Pending/rejected reports and duplicate reports never inflate totals. Ties are explicit.
 - Rate limits reduce accidental/automated repeated requests. Submissions are anonymous: the three slots are not proof of three distinct people. Add identity verification and abuse review before a large public launch.
 
 ## Data sources
@@ -49,7 +51,7 @@ docker compose ps -a
 docker compose logs --tail=100 app setup
 ```
 
-Open http://localhost:3000. Compose first runs the schema setup as a one-off container. The app starts only after setup succeeds; a missing database URL or failed migration blocks startup. The setup container exiting with code 0 is expected. No local Postgres container is needed: results, location additions and attachment bytes persist in Neon, including when the app container is replaced.
+Open http://localhost:3000. Compose first runs the schema setup as a one-off container. The app starts only after setup succeeds; a missing database URL or failed migration blocks startup. The setup container exiting with code 0 is expected. The app image also runs the repeatable schema setup before startup, including on Render. No local Postgres container is needed: results, location additions and attachment bytes persist in Neon, including when the app container is replaced.
 
 The image uses Node 24, a lockfile-based production dependency install, a non-root user, and an HTTP health check at `/healthz`. Compose runs with a read-only filesystem, dropped Linux capabilities, restart-on-failure/host-reboot behavior, and graceful termination. `/healthz` checks the web process; it does not assert that Neon is reachable. Use the application logs to investigate database failures.
 
